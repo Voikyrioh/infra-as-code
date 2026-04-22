@@ -1,0 +1,37 @@
+name: Deploy Traefik
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'traefik/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy Traefik config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: "traefik/traefik.yml,traefik/dynamic/"
+          target: /opt/infra/traefik/
+          strip_components: 1
+
+      - name: Restart Traefik
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            cd /opt/infra/traefik
+            docker compose up -d --force-recreate
+            sleep 3
+            docker ps | grep traefik
