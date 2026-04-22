@@ -1,0 +1,87 @@
+---
+- name: Setup VPS base
+  hosts: all
+  become: true
+
+  vars:
+    deploy_user: deploy
+    deploy_user_home: /home/deploy
+    infra_dirs:
+      - /opt/infra/traefik/dynamic
+      - /opt/infra/monitoring
+      - /opt/infra/dashboard
+      - /opt/infra/apps
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - git
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Enable and start Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Create deploy user
+      user:
+        name: "{{ deploy_user }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Add deploy user to docker group
+      user:
+        name: "{{ deploy_user }}"
+        groups: docker
+        append: yes
+
+    - name: Add SSH public key for deploy user
+      authorized_key:
+        user: "{{ deploy_user }}"
+        key: "{{ lookup('file', '~/.ssh/infra_deploy.pub') }}"
+        state: present
+
+    - name: Create infra directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: '0755'
+      loop: "{{ infra_dirs }}"
+
+    - name: Create Docker proxy network
+      community.docker.docker_network:
+        name: proxy
+        state: present

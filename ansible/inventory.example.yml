@@ -1,0 +1,6 @@
+all:
+  hosts:
+    vps:
+      ansible_host: <VPS_IP>
+      ansible_port: <SSH_PORT>
+      ssh_custom_port: <SSH_PORT>

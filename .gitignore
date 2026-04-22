@@ -1,0 +1,5 @@
+# Ansible — inventory réel (contient IP et port du serveur)
+ansible/inventory.yml
+
+# Secrets locaux
+**/.env
