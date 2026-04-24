@@ -9,11 +9,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.12.0",
+    "@hono/zod-validator": "^0.7.6",
     "@simplewebauthn/server": "^10.0.0",
     "@simplewebauthn/types": "^10.0.0",
     "better-sqlite3": "^9.4.3",
     "dockerode": "^4.0.2",
-    "hono": "^4.3.0"
+    "hono": "^4.3.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
