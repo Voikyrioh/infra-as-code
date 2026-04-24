@@ -1,0 +1,25 @@
+{
+  "name": "dashboard-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.12.0",
+    "@simplewebauthn/server": "^10.0.0",
+    "@simplewebauthn/types": "^10.0.0",
+    "better-sqlite3": "^9.4.3",
+    "dockerode": "^4.0.2",
+    "hono": "^4.3.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/dockerode": "^3.3.28",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}
