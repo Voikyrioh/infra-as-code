@@ -1,0 +1,50 @@
+name: Deploy Monitoring
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'monitoring/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy monitoring config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: "monitoring/docker-compose.yml,monitoring/victoria-metrics.yml,monitoring/loki.yml,monitoring/fluent-bit.conf"
+          target: /opt/infra/monitoring/
+          strip_components: 1
+
+      - name: Create .env on VPS (first deploy only)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            if [ ! -f /opt/infra/monitoring/.env ]; then
+              echo "GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}" > /opt/infra/monitoring/.env
+            fi
+
+      - name: Deploy monitoring stack
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            cd /opt/infra/monitoring
+            docker compose pull
+            docker compose up -d
+            docker compose ps
