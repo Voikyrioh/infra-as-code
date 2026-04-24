@@ -24,7 +24,7 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
     command:
       - --docker_only=true
-      - --disable=disk
+      - --disable_metrics=disk,diskIO
     networks:
       - monitoring
 
