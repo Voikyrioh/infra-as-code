@@ -3,3 +3,7 @@ ansible/inventory.yml
 
 # Secrets locaux
 **/.env
+
+# Node.js
+**/node_modules/
+**/dist/
