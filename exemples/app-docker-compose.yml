@@ -1,0 +1,23 @@
+# Template docker-compose.yml pour une application
+# Copier dans le repo de l'app et adapter (remplacer <nom-app>, <sous-domaine>, <port>)
+
+services:
+  app:
+    image: ghcr.io/voikyrioh/<nom-app>:${IMAGE_TAG:-latest}
+    container_name: <nom-app>
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.<nom-app>.rule=Host(`<sous-domaine>.voikyrioh.fr`)"
+      - "traefik.http.routers.<nom-app>.entrypoints=websecure"
+      - "traefik.http.routers.<nom-app>.tls.certresolver=cloudflare"
+      - "traefik.http.services.<nom-app>.loadbalancer.server.port=<port>"
+      - "traefik.http.routers.<nom-app>.middlewares=secure-headers@file"
+
+networks:
+  proxy:
+    external: true

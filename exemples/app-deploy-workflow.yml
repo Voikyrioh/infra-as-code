@@ -1,0 +1,19 @@
+# Template .github/workflows/deploy.yml pour une application
+# Copier dans le repo de l'app et adapter (remplacer <nom-app>)
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: voikyrioh/infra/.github/workflows/deploy-app.yml@main
+    with:
+      app_name: <nom-app>    # Nom du dossier dans /opt/infra/apps/
+      image_name: <nom-app>  # Nom de l'image sur GHCR
+    secrets:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
