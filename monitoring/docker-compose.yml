@@ -61,6 +61,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - fluent-bit-db:/var/fluent-bit
+    dns:
+      - 127.0.0.11
     depends_on:
       - loki
     networks:
