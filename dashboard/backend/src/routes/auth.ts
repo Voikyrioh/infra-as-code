@@ -69,15 +69,15 @@ authRouter.post('/register/verify', async (c) => {
     return c.json({ error: 'Verification failed' }, 400)
   }
 
-  const { credential } = verification.registrationInfo
+  const { credentialID, credentialPublicKey, counter } = verification.registrationInfo
 
   db.prepare(
     'INSERT INTO credentials (id, public_key, counter, transport) VALUES (?, ?, ?, ?)'
   ).run(
-    credential.id,
-    Buffer.from(credential.publicKey).toString('base64'),
-    credential.counter,
-    JSON.stringify(credential.transports ?? [])
+    credentialID,
+    Buffer.from(credentialPublicKey).toString('base64'),
+    counter,
+    JSON.stringify(body.response?.transports ?? [])
   )
 
   return c.json({ verified: true })
@@ -119,9 +119,9 @@ authRouter.post('/login/verify', async (c) => {
     expectedChallenge: currentChallenge,
     expectedOrigin: ORIGIN,
     expectedRPID: RP_ID,
-    credential: {
-      id: cred.id,
-      publicKey: Buffer.from(cred.public_key, 'base64'),
+    authenticator: {
+      credentialID: cred.id,
+      credentialPublicKey: Buffer.from(cred.public_key, 'base64'),
       counter: cred.counter,
       transports: JSON.parse(cred.transport),
     },

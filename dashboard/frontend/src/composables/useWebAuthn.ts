@@ -8,7 +8,7 @@ export function useWebAuthn() {
     const optRes = await fetch('/auth/register/options', { credentials: 'include' })
     const options = await optRes.json()
 
-    const credential = await startRegistration({ optionsJSON: options })
+    const credential = await startRegistration(options)
 
     const verifyRes = await fetch('/auth/register/verify', {
       method: 'POST',
@@ -25,7 +25,7 @@ export function useWebAuthn() {
     const optRes = await fetch('/auth/login/options', { credentials: 'include' })
     const options = await optRes.json()
 
-    const credential = await startAuthentication({ optionsJSON: options })
+    const credential = await startAuthentication(options)
 
     const verifyRes = await fetch('/auth/login/verify', {
       method: 'POST',

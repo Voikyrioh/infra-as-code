@@ -37,7 +37,7 @@ deploymentsRouter.post('/trigger', async (c) => {
 
   if (!response.ok) {
     const error = await response.text()
-    return c.json({ error }, response.status)
+    return c.json({ error }, response.status as any)
   }
 
   return c.json({ success: true })
