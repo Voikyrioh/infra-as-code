@@ -53,7 +53,7 @@ services:
       - monitoring
 
   fluent-bit:
-    image: fluent/fluent-bit:2.2.2
+    image: fluent/fluent-bit:1.9
     container_name: fluent-bit
     restart: unless-stopped
     volumes:
