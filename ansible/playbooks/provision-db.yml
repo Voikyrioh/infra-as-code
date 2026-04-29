@@ -1,22 +1,33 @@
 ---
 - name: Provision PostgreSQL database for an app
   hosts: all
-  become: true
-  become_user: postgres
+  # No become needed — using TCP password auth as postgres superuser
+
+  vars:
+    db_name: "{{ db_name }}"
+    db_user: "{{ db_user }}"
+    db_password: "{{ db_password }}"
+    postgres_password: "{{ postgres_password }}"  # postgres superuser password
 
   tasks:
     - name: Create database
       community.postgresql.postgresql_db:
         name: "{{ db_name }}"
         state: present
-        login_unix_socket: /var/run/postgresql
+        login_host: "127.0.0.1"
+        login_port: 5432
+        login_user: postgres
+        login_password: "{{ postgres_password }}"
 
     - name: Create user
       community.postgresql.postgresql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
         state: present
-        login_unix_socket: /var/run/postgresql
+        login_host: "127.0.0.1"
+        login_port: 5432
+        login_user: postgres
+        login_password: "{{ postgres_password }}"
 
     - name: Grant all privileges on database
       community.postgresql.postgresql_privs:
@@ -25,7 +36,10 @@
         privs: ALL
         type: database
         state: present
-        login_unix_socket: /var/run/postgresql
+        login_host: "127.0.0.1"
+        login_port: 5432
+        login_user: postgres
+        login_password: "{{ postgres_password }}"
 
     - name: Grant privileges on public schema
       community.postgresql.postgresql_privs:
@@ -35,7 +49,10 @@
         type: schema
         objs: public
         state: present
-        login_unix_socket: /var/run/postgresql
+        login_host: "127.0.0.1"
+        login_port: 5432
+        login_user: postgres
+        login_password: "{{ postgres_password }}"
 
     - name: Grant default privileges on future tables
       community.postgresql.postgresql_privs:
@@ -45,4 +62,7 @@
         type: default_privs
         objs: TABLES
         state: present
-        login_unix_socket: /var/run/postgresql
+        login_host: "127.0.0.1"
+        login_port: 5432
+        login_user: postgres
+        login_password: "{{ postgres_password }}"

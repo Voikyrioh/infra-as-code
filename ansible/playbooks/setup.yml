@@ -11,6 +11,7 @@
       - /opt/infra/monitoring
       - /opt/infra/dashboard
       - /opt/infra/apps
+      - /opt/infra/postgres
 
   tasks:
     - name: Update apt cache

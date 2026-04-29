@@ -3,6 +3,9 @@ services:
     image: postgres:17-alpine
     container_name: shared_postgres
     restart: unless-stopped
+    # Uncomment temporarily when running provision-db.yml
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
