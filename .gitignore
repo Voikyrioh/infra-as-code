@@ -7,3 +7,4 @@ ansible/inventory.yml
 # Node.js
 **/node_modules/
 **/dist/
+.worktrees/
