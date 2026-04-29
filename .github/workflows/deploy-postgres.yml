@@ -33,7 +33,7 @@ jobs:
           port: ${{ secrets.VPS_SSH_PORT }}
           script: |
             if [ ! -f /opt/infra/postgres/.env ]; then
-              echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" > /opt/infra/postgres/.env
+              printf 'POSTGRES_PASSWORD=%s\n' '${{ secrets.POSTGRES_PASSWORD }}' > /opt/infra/postgres/.env
             fi
 
       - name: Deploy postgres
@@ -46,5 +46,5 @@ jobs:
           script: |
             cd /opt/infra/postgres
             docker compose pull
-            docker compose up -d
+            docker compose up -d --remove-orphans
             docker compose ps

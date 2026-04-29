@@ -4,22 +4,19 @@
   become: true
   become_user: postgres
 
-  vars:
-    db_name: "{{ db_name }}"
-    db_user: "{{ db_user }}"
-    db_password: "{{ db_password }}"
-
   tasks:
     - name: Create database
       community.postgresql.postgresql_db:
         name: "{{ db_name }}"
         state: present
+        login_unix_socket: /var/run/postgresql
 
     - name: Create user
       community.postgresql.postgresql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
         state: present
+        login_unix_socket: /var/run/postgresql
 
     - name: Grant all privileges on database
       community.postgresql.postgresql_privs:
@@ -28,3 +25,24 @@
         privs: ALL
         type: database
         state: present
+        login_unix_socket: /var/run/postgresql
+
+    - name: Grant privileges on public schema
+      community.postgresql.postgresql_privs:
+        database: "{{ db_name }}"
+        roles: "{{ db_user }}"
+        privs: ALL
+        type: schema
+        objs: public
+        state: present
+        login_unix_socket: /var/run/postgresql
+
+    - name: Grant default privileges on future tables
+      community.postgresql.postgresql_privs:
+        database: "{{ db_name }}"
+        roles: "{{ db_user }}"
+        privs: ALL
+        type: default_privs
+        objs: TABLES
+        state: present
+        login_unix_socket: /var/run/postgresql
