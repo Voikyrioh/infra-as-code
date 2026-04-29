@@ -1,0 +1,50 @@
+name: Deploy PostgreSQL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'postgres/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy postgres config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: "postgres/docker-compose.yml"
+          target: /opt/infra/postgres/
+          strip_components: 1
+
+      - name: Create .env on VPS (first deploy only)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            if [ ! -f /opt/infra/postgres/.env ]; then
+              echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" > /opt/infra/postgres/.env
+            fi
+
+      - name: Deploy postgres
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            cd /opt/infra/postgres
+            docker compose pull
+            docker compose up -d
+            docker compose ps
