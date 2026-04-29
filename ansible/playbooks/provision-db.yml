@@ -1,68 +1,42 @@
 ---
 - name: Provision PostgreSQL database for an app
   hosts: all
-  # No become needed — using TCP password auth as postgres superuser
+  # Uses docker exec — no psycopg2 required on the target host
 
   vars:
     db_name: "{{ db_name }}"
     db_user: "{{ db_user }}"
     db_password: "{{ db_password }}"
-    postgres_password: "{{ postgres_password }}"  # postgres superuser password
+    container: "{{ postgres_container | default('shared_postgres') }}"
 
   tasks:
-    - name: Create database
-      community.postgresql.postgresql_db:
-        name: "{{ db_name }}"
-        state: present
-        login_host: "127.0.0.1"
-        login_port: 5432
-        login_user: postgres
-        login_password: "{{ postgres_password }}"
+    - name: Create database (idempotent)
+      shell: |
+        docker exec {{ container }} psql -U postgres -tc \
+          "SELECT 1 FROM pg_database WHERE datname = '{{ db_name }}'" \
+          | grep -q 1 || \
+          docker exec {{ container }} psql -U postgres -c \
+          "CREATE DATABASE {{ db_name }};"
 
-    - name: Create user
-      community.postgresql.postgresql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_password }}"
-        state: present
-        login_host: "127.0.0.1"
-        login_port: 5432
-        login_user: postgres
-        login_password: "{{ postgres_password }}"
+    - name: Create user (idempotent)
+      shell: |
+        docker exec {{ container }} psql -U postgres -tc \
+          "SELECT 1 FROM pg_roles WHERE rolname = '{{ db_user }}'" \
+          | grep -q 1 || \
+          docker exec {{ container }} psql -U postgres -c \
+          "CREATE USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
 
-    - name: Grant all privileges on database
-      community.postgresql.postgresql_privs:
-        database: "{{ db_name }}"
-        roles: "{{ db_user }}"
-        privs: ALL
-        type: database
-        state: present
-        login_host: "127.0.0.1"
-        login_port: 5432
-        login_user: postgres
-        login_password: "{{ postgres_password }}"
+    - name: Grant privileges on database
+      shell: |
+        docker exec {{ container }} psql -U postgres -c \
+          "GRANT ALL PRIVILEGES ON DATABASE {{ db_name }} TO {{ db_user }};"
 
     - name: Grant privileges on public schema
-      community.postgresql.postgresql_privs:
-        database: "{{ db_name }}"
-        roles: "{{ db_user }}"
-        privs: ALL
-        type: schema
-        objs: public
-        state: present
-        login_host: "127.0.0.1"
-        login_port: 5432
-        login_user: postgres
-        login_password: "{{ postgres_password }}"
+      shell: |
+        docker exec {{ container }} psql -U postgres -d {{ db_name }} -c \
+          "GRANT ALL ON SCHEMA public TO {{ db_user }};"
 
-    - name: Grant default privileges on future tables
-      community.postgresql.postgresql_privs:
-        database: "{{ db_name }}"
-        roles: "{{ db_user }}"
-        privs: ALL
-        type: default_privs
-        objs: TABLES
-        state: present
-        login_host: "127.0.0.1"
-        login_port: 5432
-        login_user: postgres
-        login_password: "{{ postgres_password }}"
+    - name: Set default privileges on future tables
+      shell: |
+        docker exec {{ container }} psql -U postgres -d {{ db_name }} -c \
+          "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO {{ db_user }};"
