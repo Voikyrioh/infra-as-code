@@ -1,6 +1,7 @@
 # Template docker-compose.yml pour une nouvelle app
 # Remplacer <app_name>, <subdomain>, <port> avant usage manuel.
 # Le workflow provision-app.yml génère ce fichier automatiquement.
+# La redirection HTTP→HTTPS est gérée globalement par Traefik (entrypoint web → websecure).
 
 services:
   app:
@@ -8,16 +9,19 @@ services:
     container_name: <app_name>
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
+      # Ajouter les variables d'environnement spécifiques à l'app ici.
+      # - MA_VARIABLE=valeur
     networks:
       - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.<app_name>.rule=Host(`<subdomain>.voikyrioh.fr`)"
       - "traefik.http.routers.<app_name>.entrypoints=websecure"
+      - "traefik.http.routers.<app_name>.tls=true"
       - "traefik.http.routers.<app_name>.tls.certresolver=cloudflare"
-      - "traefik.http.services.<app_name>.loadbalancer.server.port=<port>"
+      - "traefik.http.services.<app_name>.loadbalancer.server.port=<port>"  # port interne du container, ex: 3000
       - "traefik.http.routers.<app_name>.middlewares=secure-headers@file"
+
 networks:
   proxy:
     external: true
