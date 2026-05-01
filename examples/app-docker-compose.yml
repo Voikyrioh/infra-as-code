@@ -1,0 +1,23 @@
+# Template docker-compose.yml pour une nouvelle app
+# Remplacer <app_name>, <subdomain>, <port> avant usage manuel.
+# Le workflow provision-app.yml génère ce fichier automatiquement.
+
+services:
+  app:
+    image: ghcr.io/voikyrioh/<app_name>:${IMAGE_TAG:-latest}
+    container_name: <app_name>
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.<app_name>.rule=Host(`<subdomain>.voikyrioh.fr`)"
+      - "traefik.http.routers.<app_name>.entrypoints=websecure"
+      - "traefik.http.routers.<app_name>.tls.certresolver=cloudflare"
+      - "traefik.http.services.<app_name>.loadbalancer.server.port=<port>"
+      - "traefik.http.routers.<app_name>.middlewares=secure-headers@file"
+networks:
+  proxy:
+    external: true
