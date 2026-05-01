@@ -23,9 +23,22 @@ on:
 jobs:
   provision:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions: {}
 
     steps:
+      - name: Validation des inputs
+        env:
+          TARGET_REPO: ${{ inputs.target_repo }}
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          if [[ ! "$TARGET_REPO" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+            echo "ERROR: target_repo contains invalid characters" >&2; exit 1
+          fi
+          if [[ ! "$APP_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "ERROR: app_name contains invalid characters" >&2; exit 1
+          fi
+
       - name: Calcul du SSH fingerprint
         id: fingerprint
         env:
@@ -33,6 +46,10 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
           FINGERPRINT=$(ssh-keyscan -p "$VPS_SSH_PORT" "$VPS_HOST" 2>/dev/null)
+          if [ -z "$FINGERPRINT" ]; then
+            echo "ERROR: ssh-keyscan returned empty output — VPS unreachable or wrong port" >&2
+            exit 1
+          fi
           echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
 
       - name: Set secrets GitHub sur le repo cible
@@ -56,7 +73,7 @@ jobs:
           SUBDOMAIN: ${{ inputs.subdomain }}
           APP_PORT: ${{ inputs.port }}
         run: |
-          cat > /tmp/docker-compose.yml << EOF
+          sed 's/^          //' > /tmp/docker-compose.yml << EOF
           services:
             app:
               image: ghcr.io/voikyrioh/${APP_NAME}:\${IMAGE_TAG:-latest}
@@ -96,9 +113,9 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           APP_NAME: ${{ inputs.app_name }}
         run: |
-          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" "mkdir -p /opt/infra/apps/$APP_NAME"
-          scp -P "$VPS_SSH_PORT" /tmp/docker-compose.yml "deploy@$VPS_HOST:/opt/infra/apps/$APP_NAME/docker-compose.yml"
-          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
+          ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" "mkdir -p /opt/infra/apps/$APP_NAME"
+          scp -o StrictHostKeyChecking=yes -P "$VPS_SSH_PORT" /tmp/docker-compose.yml "deploy@$VPS_HOST:/opt/infra/apps/$APP_NAME/docker-compose.yml"
+          ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
             "[ ! -f /opt/infra/apps/$APP_NAME/.env ] && echo 'IMAGE_TAG=latest' > /opt/infra/apps/$APP_NAME/.env || true"
 
       - name: Cleanup SSH
