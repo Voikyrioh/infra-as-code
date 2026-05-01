@@ -1,0 +1,106 @@
+name: Provision New App
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: "Nom du repo GitHub à provisionner (ex: chess)"
+        required: true
+        type: string
+      app_name:
+        description: "Nom du dossier sur le VPS et du container"
+        required: true
+        type: string
+      subdomain:
+        description: "Sous-domaine Traefik (→ <subdomain>.voikyrioh.fr)"
+        required: true
+        type: string
+      port:
+        description: "Port interne exposé par le container"
+        required: true
+        type: string
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Calcul du SSH fingerprint
+        id: fingerprint
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          FINGERPRINT=$(ssh-keyscan -p "$VPS_SSH_PORT" "$VPS_HOST" 2>/dev/null)
+          echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
+
+      - name: Set secrets GitHub sur le repo cible
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          SSH_FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
+          TARGET_REPO: ${{ inputs.target_repo }}
+        run: |
+          gh secret set SSH_PRIVATE_KEY --repo "voikyrioh/$TARGET_REPO" --body "$VPS_SSH_KEY"
+          gh secret set SSH_HOST        --repo "voikyrioh/$TARGET_REPO" --body "$VPS_HOST"
+          gh secret set SSH_PORT        --repo "voikyrioh/$TARGET_REPO" --body "$VPS_SSH_PORT"
+          gh secret set SSH_USER        --repo "voikyrioh/$TARGET_REPO" --body "deploy"
+          gh secret set SSH_HOST_FINGERPRINT --repo "voikyrioh/$TARGET_REPO" --body "$SSH_FINGERPRINT"
+
+      - name: Génération du docker-compose.yml
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+          SUBDOMAIN: ${{ inputs.subdomain }}
+          APP_PORT: ${{ inputs.port }}
+        run: |
+          cat > /tmp/docker-compose.yml << EOF
+          services:
+            app:
+              image: ghcr.io/voikyrioh/${APP_NAME}:\${IMAGE_TAG:-latest}
+              container_name: ${APP_NAME}
+              restart: unless-stopped
+              environment:
+                - NODE_ENV=production
+              networks:
+                - proxy
+              labels:
+                - "traefik.enable=true"
+                - "traefik.http.routers.${APP_NAME}.rule=Host(\`${SUBDOMAIN}.voikyrioh.fr\`)"
+                - "traefik.http.routers.${APP_NAME}.entrypoints=websecure"
+                - "traefik.http.routers.${APP_NAME}.tls=true"
+                - "traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare"
+                - "traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}"
+                - "traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file"
+          networks:
+            proxy:
+              external: true
+          EOF
+
+      - name: Setup SSH sur le runner
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$VPS_SSH_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Provisioning VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" "mkdir -p /opt/infra/apps/$APP_NAME"
+          scp -P "$VPS_SSH_PORT" /tmp/docker-compose.yml "deploy@$VPS_HOST:/opt/infra/apps/$APP_NAME/docker-compose.yml"
+          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
+            "[ ! -f /opt/infra/apps/$APP_NAME/.env ] && echo 'IMAGE_TAG=latest' > /opt/infra/apps/$APP_NAME/.env || true"
+
+      - name: Cleanup SSH
+        if: always()
+        run: rm -rf ~/.ssh
