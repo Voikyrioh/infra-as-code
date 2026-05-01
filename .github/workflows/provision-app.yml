@@ -80,8 +80,6 @@ jobs:
               image: ghcr.io/voikyrioh/${APP_NAME}:${IMAGE_TAG:-latest}
               container_name: ${APP_NAME}
               restart: unless-stopped
-              environment:
-                - NODE_ENV=production
               networks:
                 - proxy
               labels:
