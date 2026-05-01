@@ -50,7 +50,11 @@ jobs:
             echo "ERROR: ssh-keyscan returned empty output — VPS unreachable or wrong port" >&2
             exit 1
           fi
-          echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
+          {
+            echo "fingerprint<<FINGERPRINT_EOF"
+            echo "$FINGERPRINT"
+            echo "FINGERPRINT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set secrets GitHub sur le repo cible
         env:
