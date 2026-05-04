@@ -192,6 +192,7 @@ jobs:
             "touch /opt/infra/apps/$APP_NAME/.env"
 
       - name: Créer l'AppRole Vault pour l'app
+        id: approle
         env:
           APP_NAME: ${{ inputs.app_name }}
         run: |
@@ -212,6 +213,7 @@ jobs:
           APP_ROLE_ID=$(vault read -field=role_id "auth/approle/role/app-$APP_NAME/role-id")
           APP_SECRET_ID=$(vault write -force -field=secret_id "auth/approle/role/app-$APP_NAME/secret-id")
 
+          echo "::add-mask::$APP_SECRET_ID"
           echo "APP_ROLE_ID=$APP_ROLE_ID"     >> $GITHUB_ENV
           echo "APP_SECRET_ID=$APP_SECRET_ID" >> $GITHUB_ENV
 
