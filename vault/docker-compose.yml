@@ -1,6 +1,6 @@
 services:
   vault:
-    image: hashicorp/vault:1.17
+    image: hashicorp/vault:1.19
     container_name: vault
     restart: unless-stopped
     cap_add:
@@ -19,6 +19,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       - "traefik.http.routers.vault.rule=Host(`vault.voikyrioh.fr`)"
       - "traefik.http.routers.vault.entrypoints=websecure"
       - "traefik.http.routers.vault.tls=true"
