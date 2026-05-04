@@ -1,0 +1,6 @@
+type: postgres
+container: shared_postgres
+port: 5432
+# Path Vault contenant les credentials admin utilisés pour créer les DBs des apps
+# Clés attendues dans Vault : PG_ADMIN_USER, PG_ADMIN_PASSWORD
+vault_admin_path: secret/resources/postgres

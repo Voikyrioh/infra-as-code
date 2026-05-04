@@ -1,0 +1,7 @@
+type: redis
+container: shared_redis
+port: 6379
+# Path Vault contenant le compteur d'index DB et optionnellement le password
+# Clés attendues dans Vault : REDIS_NEXT_DB_INDEX (entier, commence à 0)
+# REDIS_PASSWORD est optionnel (si Redis tourne sans auth, ne pas le définir)
+vault_admin_path: secret/resources/redis
