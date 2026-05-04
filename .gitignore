@@ -8,3 +8,5 @@ ansible/inventory.yml
 **/node_modules/
 **/dist/
 .worktrees/
+
+.idea
