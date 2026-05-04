@@ -1,0 +1,39 @@
+name: Deploy Vault
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'vault/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy Vault config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: "vault/docker-compose.yml"
+          target: /opt/infra/vault/
+          strip_components: 1
+
+      - name: Deploy Vault
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            mkdir -p /opt/infra/vault
+            cd /opt/infra/vault
+            docker compose pull
+            docker compose up -d
+            docker compose ps
