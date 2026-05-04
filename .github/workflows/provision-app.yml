@@ -3,41 +3,53 @@ name: Provision New App
 on:
   workflow_dispatch:
     inputs:
-      target_repo:
-        description: "Nom du repo GitHub à provisionner (ex: chess)"
-        required: true
-        type: string
       app_name:
-        description: "Nom du dossier sur le VPS et du container"
-        required: true
-        type: string
-      subdomain:
-        description: "Sous-domaine Traefik (→ <subdomain>.voikyrioh.fr)"
-        required: true
-        type: string
-      port:
-        description: "Port interne exposé par le container"
+        description: "Nom du fichier dans apps/ (ex: dashboard)"
         required: true
         type: string
 
 jobs:
   provision:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions: {}
 
     steps:
-      - name: Validation des inputs
+      - uses: actions/checkout@v4
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+
+      - name: Install Vault CLI
+        uses: hashicorp/setup-vault@v3
+        with:
+          version: '1.19.0'
+
+      - name: Validation
         env:
-          TARGET_REPO: ${{ inputs.target_repo }}
           APP_NAME: ${{ inputs.app_name }}
         run: |
-          if [[ ! "$TARGET_REPO" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-            echo "ERROR: target_repo contains invalid characters" >&2; exit 1
-          fi
           if [[ ! "$APP_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-            echo "ERROR: app_name contains invalid characters" >&2; exit 1
+            echo "ERROR: app_name invalide (caracteres alphanumeriques et tirets uniquement)" >&2
+            exit 1
           fi
+          if [ ! -f "apps/$APP_NAME.yml" ]; then
+            echo "ERROR: apps/$APP_NAME.yml introuvable dans le repo" >&2
+            exit 1
+          fi
+
+      - name: Lire la config de l'app
+        id: config
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          F="apps/$APP_NAME.yml"
+          echo "github_repo=$(yq '.github_repo' $F)"   >> $GITHUB_OUTPUT
+          echo "subdomain=$(yq '.subdomain' $F)"       >> $GITHUB_OUTPUT
+          echo "port=$(yq '.port' $F)"                 >> $GITHUB_OUTPUT
+          echo "image=$(yq '.image' $F)"               >> $GITHUB_OUTPUT
+          echo "has_postgres=$(yq '.resources // [] | .[] | select(.type == "postgres") | "true"' $F | head -1)" >> $GITHUB_OUTPUT
+          echo "has_redis=$(yq '.resources // [] | .[] | select(.type == "redis") | "true"' $F | head -1)"      >> $GITHUB_OUTPUT
 
       - name: Calcul du SSH fingerprint
         id: fingerprint
@@ -47,7 +59,7 @@ jobs:
         run: |
           FINGERPRINT=$(ssh-keyscan -p "$VPS_SSH_PORT" "$VPS_HOST" 2>/dev/null)
           if [ -z "$FINGERPRINT" ]; then
-            echo "ERROR: ssh-keyscan returned empty output — VPS unreachable or wrong port" >&2
+            echo "ERROR: ssh-keyscan vide — VPS inaccessible ou port incorrect" >&2
             exit 1
           fi
           {
@@ -56,50 +68,7 @@ jobs:
             echo "FINGERPRINT_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Set secrets GitHub sur le repo cible
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
-          SSH_FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
-          TARGET_REPO: ${{ inputs.target_repo }}
-        run: |
-          gh secret set SSH_PRIVATE_KEY --repo "voikyrioh/$TARGET_REPO" --body "$VPS_SSH_KEY"
-          gh secret set SSH_HOST        --repo "voikyrioh/$TARGET_REPO" --body "$VPS_HOST"
-          gh secret set SSH_PORT        --repo "voikyrioh/$TARGET_REPO" --body "$VPS_SSH_PORT"
-          gh secret set SSH_USER        --repo "voikyrioh/$TARGET_REPO" --body "deploy"
-          gh secret set SSH_HOST_FINGERPRINT --repo "voikyrioh/$TARGET_REPO" --body "$SSH_FINGERPRINT"
-
-      - name: Génération du docker-compose.yml
-        env:
-          APP_NAME: ${{ inputs.app_name }}
-          SUBDOMAIN: ${{ inputs.subdomain }}
-          APP_PORT: ${{ inputs.port }}
-        run: |
-          export APP_NAME SUBDOMAIN APP_PORT
-          cat << 'TEMPLATE' | envsubst '${APP_NAME} ${SUBDOMAIN} ${APP_PORT}' > /tmp/docker-compose.yml
-          services:
-            app:
-              image: ghcr.io/voikyrioh/${APP_NAME}:${IMAGE_TAG:-latest}
-              container_name: ${APP_NAME}
-              restart: unless-stopped
-              networks:
-                - proxy
-              labels:
-                - "traefik.enable=true"
-                - "traefik.http.routers.${APP_NAME}.rule=Host(`${SUBDOMAIN}.voikyrioh.fr`)"
-                - "traefik.http.routers.${APP_NAME}.entrypoints=websecure"
-                - "traefik.http.routers.${APP_NAME}.tls=true"
-                - "traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare"
-                - "traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}"
-                - "traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file"
-          networks:
-            proxy:
-              external: true
-          TEMPLATE
-
-      - name: Setup SSH sur le runner
+      - name: Setup SSH
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           SSH_FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
@@ -109,16 +78,161 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           echo "$SSH_FINGERPRINT" >> ~/.ssh/known_hosts
 
+      - name: Authentification Vault (AppRole infra)
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
+        run: |
+          TOKEN=$(vault write -field=token auth/approle/login \
+            role_id="$VAULT_ROLE_ID" \
+            secret_id="$VAULT_SECRET_ID")
+          echo "VAULT_TOKEN=$TOKEN"     >> $GITHUB_ENV
+          echo "VAULT_ADDR=$VAULT_ADDR" >> $GITHUB_ENV
+
+      - name: Provision PostgreSQL
+        if: steps.config.outputs.has_postgres == 'true'
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          PG_ADMIN_USER=$(vault kv get -field=PG_ADMIN_USER secret/resources/postgres)
+          PG_ADMIN_PASSWORD=$(vault kv get -field=PG_ADMIN_PASSWORD secret/resources/postgres)
+          PG_CONTAINER=$(yq '.container' resources/postgres.yml)
+
+          PG_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')
+          PG_USER="${APP_NAME}_user"
+          PG_DATABASE="$APP_NAME"
+
+          ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
+            "docker exec $PG_CONTAINER psql -U $PG_ADMIN_USER \
+              -c \"CREATE USER $PG_USER WITH PASSWORD '$PG_PASSWORD';\" 2>/dev/null || true
+             docker exec $PG_CONTAINER psql -U $PG_ADMIN_USER \
+              -c \"CREATE DATABASE $PG_DATABASE OWNER $PG_USER;\" 2>/dev/null || true"
+
+          vault kv put "secret/apps/$APP_NAME" \
+            PG_HOST="$PG_CONTAINER" \
+            PG_PORT="5432" \
+            PG_DATABASE="$PG_DATABASE" \
+            PG_USER="$PG_USER" \
+            PG_PASSWORD="$PG_PASSWORD"
+
+      - name: Provision Redis
+        if: steps.config.outputs.has_redis == 'true'
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          REDIS_CONTAINER=$(yq '.container' resources/redis.yml)
+          REDIS_PORT=$(yq '.port' resources/redis.yml)
+
+          NEXT_INDEX=$(vault kv get -field=REDIS_NEXT_DB_INDEX secret/resources/redis)
+          NEW_INDEX=$((NEXT_INDEX + 1))
+          vault kv patch secret/resources/redis REDIS_NEXT_DB_INDEX="$NEW_INDEX"
+
+          if vault kv get "secret/apps/$APP_NAME" > /dev/null 2>&1; then
+            vault kv patch "secret/apps/$APP_NAME" \
+              REDIS_HOST="$REDIS_CONTAINER" \
+              REDIS_PORT="$REDIS_PORT" \
+              REDIS_DB="$NEXT_INDEX"
+          else
+            vault kv put "secret/apps/$APP_NAME" \
+              REDIS_HOST="$REDIS_CONTAINER" \
+              REDIS_PORT="$REDIS_PORT" \
+              REDIS_DB="$NEXT_INDEX"
+          fi
+
+      - name: Génération du docker-compose.yml
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          SUBDOMAIN="${{ steps.config.outputs.subdomain }}"
+          APP_PORT="${{ steps.config.outputs.port }}"
+          APP_IMAGE="${{ steps.config.outputs.image }}"
+
+          ENV_SECTION=$(yq '.env // {} | to_entries[] | "      " + .key + ": \"" + .value + "\""' "apps/$APP_NAME.yml")
+
+          cat > /tmp/docker-compose.yml <<COMPOSE
+          services:
+            app:
+              image: ${APP_IMAGE}:\${IMAGE_TAG:-latest}
+              container_name: ${APP_NAME}
+              restart: unless-stopped
+              environment:
+          ${ENV_SECTION}
+              env_file:
+                - .env
+              networks:
+                - proxy
+              labels:
+                - "traefik.enable=true"
+                - "traefik.docker.network=proxy"
+                - "traefik.http.routers.${APP_NAME}.rule=Host(\`${SUBDOMAIN}.voikyrioh.fr\`)"
+                - "traefik.http.routers.${APP_NAME}.entrypoints=websecure"
+                - "traefik.http.routers.${APP_NAME}.tls=true"
+                - "traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare"
+                - "traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}"
+                - "traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file"
+          networks:
+            proxy:
+              external: true
+          COMPOSE
+
       - name: Provisioning VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           APP_NAME: ${{ inputs.app_name }}
         run: |
-          ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" "mkdir -p /opt/infra/apps/$APP_NAME"
-          scp -o StrictHostKeyChecking=yes -P "$VPS_SSH_PORT" /tmp/docker-compose.yml "deploy@$VPS_HOST:/opt/infra/apps/$APP_NAME/docker-compose.yml"
           ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
-            "[ ! -f /opt/infra/apps/$APP_NAME/.env ] && echo 'IMAGE_TAG=latest' > /opt/infra/apps/$APP_NAME/.env || true"
+            "mkdir -p /opt/infra/apps/$APP_NAME"
+          scp -o StrictHostKeyChecking=yes -P "$VPS_SSH_PORT" \
+            /tmp/docker-compose.yml "deploy@$VPS_HOST:/opt/infra/apps/$APP_NAME/docker-compose.yml"
+          ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
+            "touch /opt/infra/apps/$APP_NAME/.env"
+
+      - name: Créer l'AppRole Vault pour l'app
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          vault policy write "app-$APP_NAME" - <<EOF
+          path "secret/data/apps/$APP_NAME" {
+            capabilities = ["read"]
+          }
+          path "secret/metadata/apps/$APP_NAME" {
+            capabilities = ["read"]
+          }
+          EOF
+
+          vault write "auth/approle/role/app-$APP_NAME" \
+            token_policies="app-$APP_NAME" \
+            token_ttl=1h \
+            token_max_ttl=4h
+
+          APP_ROLE_ID=$(vault read -field=role_id "auth/approle/role/app-$APP_NAME/role-id")
+          APP_SECRET_ID=$(vault write -force -field=secret_id "auth/approle/role/app-$APP_NAME/secret-id")
+
+          echo "APP_ROLE_ID=$APP_ROLE_ID"     >> $GITHUB_ENV
+          echo "APP_SECRET_ID=$APP_SECRET_ID" >> $GITHUB_ENV
+
+      - name: Set secrets GitHub sur le repo cible
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          SSH_FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
+          VAULT_ADDR_VALUE: ${{ secrets.VAULT_ADDR }}
+          GITHUB_REPO: ${{ steps.config.outputs.github_repo }}
+        run: |
+          gh secret set SSH_PRIVATE_KEY      --repo "$GITHUB_REPO" --body "$VPS_SSH_KEY"
+          gh secret set SSH_HOST             --repo "$GITHUB_REPO" --body "$VPS_HOST"
+          gh secret set SSH_PORT             --repo "$GITHUB_REPO" --body "$VPS_SSH_PORT"
+          gh secret set SSH_USER             --repo "$GITHUB_REPO" --body "deploy"
+          gh secret set SSH_HOST_FINGERPRINT --repo "$GITHUB_REPO" --body "$SSH_FINGERPRINT"
+          gh secret set VAULT_ADDR           --repo "$GITHUB_REPO" --body "$VAULT_ADDR_VALUE"
+          gh secret set VAULT_ROLE_ID        --repo "$GITHUB_REPO" --body "$APP_ROLE_ID"
+          gh secret set VAULT_SECRET_ID      --repo "$GITHUB_REPO" --body "$APP_SECRET_ID"
 
       - name: Cleanup SSH
         if: always()
