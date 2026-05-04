@@ -1,0 +1,25 @@
+name: dashboard
+github_repo: voikyrioh/dashboard
+subdomain: dashboard
+port: 8080
+image: ghcr.io/voikyrioh/dashboard-api
+
+env:
+  NODE_ENV: production
+  HOSTNAME: "0.0.0.0"
+  RP_ID: dashboard.voikyrioh.fr
+  ORIGIN: https://dashboard.voikyrioh.fr
+  CLIENT_URLS: https://dashboard.voikyrioh.fr
+  GITHUB_OWNER: voikyrioh
+  GITHUB_REPO: dashboard
+  LOG_FILE: /data/logs/app.log
+  PRIVATE_KEY: /data/ssl/id_rsa
+  PUBLIC_KEY: /data/ssl/id_rsa.pub
+  JWT_EXPIRATION_TIME_MS: "3600000"
+
+resources:
+  - type: postgres
+
+vault:
+  paths:
+    - secret/apps/dashboard

@@ -1,0 +1,30 @@
+# Template de configuration pour une nouvelle app
+# Copier ce fichier, le renommer en <app_name>.yml, et adapter les valeurs.
+# Déclencher provision-app.yml (workflow_dispatch, input: app_name) après modification.
+
+name: example                              # Identifiant unique, utilisé comme nom de container et dossier sur le VPS
+github_repo: voikyrioh/example             # Repo GitHub cible (owner/repo)
+subdomain: example                         # → example.voikyrioh.fr via Traefik
+port: 3000                                 # Port interne du container
+image: ghcr.io/voikyrioh/example           # Image GHCR (sans le tag — géré par IMAGE_TAG dans .env)
+
+# Variables d'environnement NON SENSIBLES
+# Baked dans le docker-compose.yml généré par provision-app.yml
+# Pour les modifier : mettre à jour ce fichier et re-déclencher provision-app.yml
+env:
+  NODE_ENV: production
+  LOG_LEVEL: info
+
+# Ressources partagées dont l'app a besoin
+# Le workflow provision-app.yml crée une zone isolée (DB propre, index Redis)
+# et stocke les credentials dans Vault automatiquement
+resources: []
+  # - type: postgres    # Crée une DB <name> + user <name>_user sur shared_postgres
+  # - type: redis       # Alloue un index DB sur shared_redis (0-15)
+
+# Paths Vault lus lors de chaque déploiement pour construire le .env
+# Le premier path est auto-créé par provision-app.yml
+vault:
+  paths:
+    - secret/apps/example
+    # - secret/shared/stripe    # Pour des secrets partagés entre apps (ajoutés manuellement)
