@@ -18,6 +18,12 @@ on:
         required: true
       VPS_SSH_PORT:
         required: true
+      VAULT_ADDR:
+        required: true
+      VAULT_ROLE_ID:
+        required: true
+      VAULT_SECRET_ID:
+        required: true
 
 jobs:
   build-and-deploy:
@@ -52,14 +58,41 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
 
-      - name: Copy docker-compose.yml to VPS
+      - name: Install Vault CLI
+        uses: hashicorp/setup-vault@v3
+        with:
+          version: '1.17.0'
+
+      - name: Générer .env depuis Vault
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
+          APP_NAME: ${{ inputs.app_name }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          TOKEN=$(vault write -field=token auth/approle/login \
+            role_id="$VAULT_ROLE_ID" \
+            secret_id="$VAULT_SECRET_ID")
+          export VAULT_TOKEN="$TOKEN"
+
+          echo "IMAGE_TAG=${IMAGE_TAG:0:7}" > .env
+
+          vault kv get -format=json "secret/apps/$APP_NAME" \
+            | jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"' \
+            >> .env
+
+          echo "=== .env généré (clés uniquement) ==="
+          cut -d= -f1 .env
+
+      - name: Copy docker-compose.yml and .env to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          source: "docker-compose.yml"
+          source: "docker-compose.yml,.env"
           target: /opt/infra/apps/${{ inputs.app_name }}/
 
       - name: Deploy on VPS
@@ -71,7 +104,6 @@ jobs:
           port: ${{ secrets.VPS_SSH_PORT }}
           script: |
             cd /opt/infra/apps/${{ inputs.app_name }}
-            echo "IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-7)" > .env
             docker compose pull
             docker compose up -d --remove-orphans
             docker compose ps
