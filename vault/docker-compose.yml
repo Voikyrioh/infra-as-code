@@ -6,12 +6,11 @@ services:
     cap_add:
       - IPC_LOCK
     environment:
-      VAULT_LOCAL_CONFIG: |
-        ui = false
-        storage "file" { path = "/vault/data" }
-        listener "tcp" {
-          address = "0.0.0.0:8200"
-          tls_disable = true
+      VAULT_LOCAL_CONFIG: >-
+        {
+          "ui": false,
+          "storage": { "file": { "path": "/vault/data" } },
+          "listener": [{ "tcp": { "address": "0.0.0.0:8200", "tls_disable": true } }]
         }
     volumes:
       - vault-data:/vault/data
