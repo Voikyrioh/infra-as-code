@@ -43,6 +43,11 @@ jobs:
             *) echo "ERROR: bump_type invalide" >&2; exit 1 ;;
           esac
 
+          if git ls-remote --tags origin "$NEW" | grep -q "$NEW"; then
+            echo "ERROR: Le tag $NEW existe déjà. Utilise un bump plus élevé ou supprime le tag manuellement." >&2
+            exit 1
+          fi
+
           echo "tag=$NEW" >> $GITHUB_OUTPUT
           echo "Nouveau tag : $NEW (depuis $LATEST)"
 
