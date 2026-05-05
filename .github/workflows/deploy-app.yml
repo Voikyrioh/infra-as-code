@@ -87,14 +87,14 @@ jobs:
           echo "=== .env généré (clés uniquement) ==="
           cut -d= -f1 .env
 
-      - name: Copy docker-compose.yml and .env to VPS
+      - name: Copy .env to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          source: "docker-compose.yml,.env"
+          source: ".env"
           target: /opt/infra/apps/${{ inputs.app_name }}/
 
       - name: Deploy on VPS
