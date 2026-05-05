@@ -90,6 +90,8 @@ infra/
 
 ## Secrets GitHub requis
 
+### Repo infra (voikyrioh/infra)
+
 ```
 VPS_HOST          → IP du VPS
 VPS_SSH_KEY       → Clé privée SSH GitHub Actions
@@ -97,7 +99,23 @@ VPS_SSH_PORT      → Port SSH du VPS
 CF_API_TOKEN      → Token Cloudflare (DNS challenge Let's Encrypt)
 GRAFANA_PASSWORD  → Mot de passe admin Grafana
 GHCR_TOKEN        → Token lecture GHCR
-GH_PAT            → Fine-grained PAT avec permission "Secrets" (Read and write) sur voikyrioh/* — requis par provision-app.yml
+GH_PAT            → Fine-grained PAT avec permission "Secrets" (Read and write) sur voikyrioh/*
+VAULT_ADDR        → Adresse Vault (ex: https://vault.voikyrioh.fr)
+VAULT_ROLE_ID     → AppRole role_id du workflow infra (créé lors de vault-init)
+VAULT_SECRET_ID   → AppRole secret_id du workflow infra (créé lors de vault-init)
+```
+
+### Repos app (settés automatiquement par provision-app.yml)
+
+```
+SSH_PRIVATE_KEY       → Clé privée SSH
+SSH_HOST              → IP du VPS
+SSH_PORT              → Port SSH
+SSH_USER              → deploy
+SSH_HOST_FINGERPRINT  → Fingerprint SSH du VPS
+VAULT_ADDR            → Adresse Vault
+VAULT_ROLE_ID         → AppRole role_id de l'app (accès restreint à secret/apps/<app>/)
+VAULT_SECRET_ID       → AppRole secret_id de l'app
 ```
 
 ## Comment interagir avec ce projet
