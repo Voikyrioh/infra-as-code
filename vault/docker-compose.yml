@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     cap_add:
       - IPC_LOCK
+    command: ["vault", "server", "-config=/vault/config/vault.hcl"]
     volumes:
       - ./config.hcl:/vault/config/vault.hcl:ro
       - vault-data:/vault/data
