@@ -1,0 +1,13 @@
+name: slay-the-slime
+github_repo: voikyrioh/slay_the_slime
+subdomain: slay-the-slime
+port: 80
+image: ghcr.io/voikyrioh/slay_the_slime
+
+env: {}
+
+resources: []
+
+vault:
+  paths:
+    - secret/apps/slay-the-slime
