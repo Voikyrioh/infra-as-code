@@ -80,9 +80,9 @@ jobs:
 
           echo "IMAGE_TAG=${IMAGE_TAG:0:7}" > .env
 
-          vault kv get -format=json "secret/apps/$APP_NAME" \
-            | jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"' \
-            >> .env
+          if vault kv get -format=json "secret/apps/$APP_NAME" > /tmp/vault-secrets.json 2>/dev/null; then
+            jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"' /tmp/vault-secrets.json >> .env
+          fi
 
           echo "=== .env généré (clés uniquement) ==="
           cut -d= -f1 .env
