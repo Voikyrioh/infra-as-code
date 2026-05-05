@@ -1,0 +1,13 @@
+name: chess
+github_repo: voikyrioh/my-chess-game
+subdomain: chess
+port: 80
+image: ghcr.io/voikyrioh/my-chess-game
+
+env: {}
+
+resources: []
+
+vault:
+  paths:
+    - secret/apps/chess
