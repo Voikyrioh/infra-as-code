@@ -37,27 +37,16 @@ jobs:
             echo "ERROR: version doit correspondre à vX.Y.Z" >&2; exit 1
           fi
 
-      - name: Calcul du SSH fingerprint
-        id: fingerprint
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
-        run: |
-          FINGERPRINT=$(ssh-keyscan -t ed25519 -p "$VPS_SSH_PORT" "$VPS_HOST" 2>/dev/null \
-            | ssh-keygen -lf - \
-            | awk '{print $2}')
-          if [ -z "$FINGERPRINT" ]; then
-            echo "ERROR: ssh-keyscan vide" >&2; exit 1
-          fi
-          echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
-
       - name: Setup SSH
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
           mkdir -p ~/.ssh
           echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t ed25519 -p "$VPS_SSH_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
 
       - name: Install Vault CLI
         run: |
@@ -91,30 +80,25 @@ jobs:
           cut -d= -f1 .env
 
       - name: Copier .env sur le VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: deploy
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_SSH_PORT }}
-          fingerprint: ${{ steps.fingerprint.outputs.fingerprint }}
-          source: ".env"
-          target: /opt/infra/apps/${{ inputs.app_name }}/
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          scp -P "$VPS_SSH_PORT" -i ~/.ssh/id_rsa .env deploy@$VPS_HOST:/opt/infra/apps/$APP_NAME/
 
       - name: Déployer sur le VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: deploy
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_SSH_PORT }}
-          fingerprint: ${{ steps.fingerprint.outputs.fingerprint }}
-          envs: APP_NAME
-          script: |
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          ssh -p "$VPS_SSH_PORT" -i ~/.ssh/id_rsa deploy@$VPS_HOST bash << EOF
             cd /opt/infra/apps/$APP_NAME
             docker compose pull
             docker compose up -d --remove-orphans
             docker compose ps
+          EOF
 
       - name: Cleanup SSH
         if: always()
