@@ -53,6 +53,7 @@ jobs:
           echo "image=$(yq '.image' $F)"               >> $GITHUB_OUTPUT
           echo "has_postgres=$(yq '.resources // [] | .[] | select(.type == "postgres") | "true"' $F | head -1)" >> $GITHUB_OUTPUT
           echo "has_redis=$(yq '.resources // [] | .[] | select(.type == "redis") | "true"' $F | head -1)"      >> $GITHUB_OUTPUT
+          echo "has_mysql=$(yq '.resources // [] | .[] | select(.type == "mysql") | "true"' $F | head -1)"      >> $GITHUB_OUTPUT
 
       - name: Calcul du SSH fingerprint
         id: fingerprint
@@ -145,9 +146,48 @@ jobs:
               REDIS_DB="$NEXT_INDEX"
           fi
 
+      - name: Provision MySQL
+        if: steps.config.outputs.has_mysql == 'true'
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          MYSQL_ROOT_PASSWORD=$(vault kv get -field=MYSQL_ROOT_PASSWORD secret/resources/mysql)
+          MYSQL_CONTAINER=$(yq '.container' resources/mysql.yml)
+          MYSQL_PORT=$(yq '.port' resources/mysql.yml)
+
+          MYSQL_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')
+          MYSQL_USER="${APP_NAME}_user"
+          MYSQL_DATABASE="$APP_NAME"
+
+          ssh -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
+            "docker exec $MYSQL_CONTAINER mysql -u root -p\"$MYSQL_ROOT_PASSWORD\" \
+              -e \"CREATE DATABASE IF NOT EXISTS \\\`$MYSQL_DATABASE\\\`;
+                   CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+                   GRANT ALL PRIVILEGES ON \\\`$MYSQL_DATABASE\\\`.* TO '$MYSQL_USER'@'%';
+                   FLUSH PRIVILEGES;\""
+
+          if vault kv get "secret/apps/$APP_NAME" > /dev/null 2>&1; then
+            vault kv patch "secret/apps/$APP_NAME" \
+              MYSQL_HOST="$MYSQL_CONTAINER" \
+              MYSQL_PORT="$MYSQL_PORT" \
+              MYSQL_DATABASE="$MYSQL_DATABASE" \
+              MYSQL_USER="$MYSQL_USER" \
+              MYSQL_PASSWORD="$MYSQL_PASSWORD"
+          else
+            vault kv put "secret/apps/$APP_NAME" \
+              MYSQL_HOST="$MYSQL_CONTAINER" \
+              MYSQL_PORT="$MYSQL_PORT" \
+              MYSQL_DATABASE="$MYSQL_DATABASE" \
+              MYSQL_USER="$MYSQL_USER" \
+              MYSQL_PASSWORD="$MYSQL_PASSWORD"
+          fi
+
       - name: Génération du docker-compose.yml
         env:
           APP_NAME: ${{ inputs.app_name }}
+          HAS_MYSQL: ${{ steps.config.outputs.has_mysql }}
         run: |
           SUBDOMAIN="${{ steps.config.outputs.subdomain }}"
           APP_PORT="${{ steps.config.outputs.port }}"
@@ -162,6 +202,14 @@ ${ENV_SECTION}"
             ENVIRONMENT_BLOCK=""
           fi
 
+          MYSQL_NETWORK_ENTRY=""
+          MYSQL_NETWORK_DEF=""
+          if [ "$HAS_MYSQL" = "true" ]; then
+            MYSQL_NETWORK_ENTRY="                - mysql"
+            MYSQL_NETWORK_DEF="            mysql:
+              external: true"
+          fi
+
           cat > /tmp/docker-compose.yml <<COMPOSE
           services:
             app:
@@ -173,6 +221,7 @@ ${ENV_SECTION}"
                 - .env
               networks:
                 - proxy
+${MYSQL_NETWORK_ENTRY}
               labels:
                 - "traefik.enable=true"
                 - "traefik.docker.network=proxy"
@@ -185,6 +234,7 @@ ${ENV_SECTION}"
           networks:
             proxy:
               external: true
+${MYSQL_NETWORK_DEF}
           COMPOSE
 
       - name: Provisioning VPS

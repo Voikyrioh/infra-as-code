@@ -1,0 +1,62 @@
+name: Deploy MySQL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mysql/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t ed25519 -p "$VPS_SSH_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copy mysql config to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -p "$VPS_SSH_PORT" -i ~/.ssh/id_rsa deploy@$VPS_HOST "mkdir -p /opt/infra/mysql"
+          scp -P "$VPS_SSH_PORT" -i ~/.ssh/id_rsa \
+            mysql/docker-compose.yml deploy@$VPS_HOST:/opt/infra/mysql/docker-compose.yml
+
+      - name: Create .env on VPS (first deploy only)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+        run: |
+          if ! ssh -p "$VPS_SSH_PORT" -i ~/.ssh/id_rsa deploy@$VPS_HOST "[ -f /opt/infra/mysql/.env ]"; then
+            printf 'MYSQL_ROOT_PASSWORD=%s\n' "$MYSQL_ROOT_PASSWORD" > /tmp/mysql.env
+            scp -P "$VPS_SSH_PORT" -i ~/.ssh/id_rsa /tmp/mysql.env deploy@$VPS_HOST:/opt/infra/mysql/.env
+            rm -f /tmp/mysql.env
+          fi
+
+      - name: Deploy MySQL
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -p "$VPS_SSH_PORT" -i ~/.ssh/id_rsa deploy@$VPS_HOST bash << 'EOF'
+            cd /opt/infra/mysql
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose ps
+          EOF
+
+      - name: Cleanup SSH
+        if: always()
+        run: rm -rf ~/.ssh

@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: shared_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  mysql:
+    name: mysql
+    internal: true
+
+volumes:
+  mysql-data:

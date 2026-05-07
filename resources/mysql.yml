@@ -1,0 +1,5 @@
+type: mysql
+container: shared_mysql
+port: 3306
+# Clé attendue dans Vault : MYSQL_ROOT_PASSWORD
+vault_admin_path: secret/resources/mysql
