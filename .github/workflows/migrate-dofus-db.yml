@@ -71,18 +71,19 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
-          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
-            "echo '$GHCR_TOKEN' | docker login ghcr.io -u voikyrioh --password-stdin 2>/dev/null && \
-             docker run --rm \
-               --network mysql \
-               -e NODE_ENV=production \
-               -e MYSQL_HOST='$MYSQL_HOST' \
-               -e MYSQL_PORT='$MYSQL_PORT' \
-               -e MYSQL_USER='$MYSQL_USER' \
-               -e MYSQL_PASSWORD='$MYSQL_PASSWORD' \
-               -e MYSQL_DATABASE='$MYSQL_DATABASE' \
-               ghcr.io/voikyrioh/dofus-db-retro-api:latest \
-               node node_modules/.bin/db-migrate up --config database.json -e production"
+          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" << ENDSSH
+            [ -n "$GHCR_TOKEN" ] && echo "$GHCR_TOKEN" | docker login ghcr.io -u voikyrioh --password-stdin || true
+            docker run --rm \
+              --network mysql \
+              -e NODE_ENV=production \
+              -e MYSQL_HOST="$MYSQL_HOST" \
+              -e MYSQL_PORT="$MYSQL_PORT" \
+              -e MYSQL_USER="$MYSQL_USER" \
+              -e MYSQL_PASSWORD="$MYSQL_PASSWORD" \
+              -e MYSQL_DATABASE="$MYSQL_DATABASE" \
+              ghcr.io/voikyrioh/dofus-db-retro-api:latest \
+              node node_modules/.bin/db-migrate up --config database.json -e production
+          ENDSSH
 
       - name: Seed des données initiales
         if: ${{ inputs.run_seed == true }}
@@ -90,17 +91,18 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
-          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
-            "docker run --rm \
-               --network mysql \
-               -e NODE_ENV=production \
-               -e MYSQL_HOST='$MYSQL_HOST' \
-               -e MYSQL_PORT='$MYSQL_PORT' \
-               -e MYSQL_USER='$MYSQL_USER' \
-               -e MYSQL_PASSWORD='$MYSQL_PASSWORD' \
-               -e MYSQL_DATABASE='$MYSQL_DATABASE' \
-               ghcr.io/voikyrioh/dofus-db-retro-api:latest \
-               npm run seed"
+          ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" << ENDSSH
+            docker run --rm \
+              --network mysql \
+              -e NODE_ENV=production \
+              -e MYSQL_HOST="$MYSQL_HOST" \
+              -e MYSQL_PORT="$MYSQL_PORT" \
+              -e MYSQL_USER="$MYSQL_USER" \
+              -e MYSQL_PASSWORD="$MYSQL_PASSWORD" \
+              -e MYSQL_DATABASE="$MYSQL_DATABASE" \
+              ghcr.io/voikyrioh/dofus-db-retro-api:latest \
+              npm run seed
+          ENDSSH
 
       - name: Cleanup SSH
         if: always()
