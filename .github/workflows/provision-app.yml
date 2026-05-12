@@ -195,46 +195,40 @@ jobs:
 
           ENV_SECTION=$(yq '.env // {} | to_entries[] | "      " + .key + ": \"" + .value + "\""' "apps/$APP_NAME.yml")
 
-          if [ -n "$ENV_SECTION" ]; then
-            ENVIRONMENT_BLOCK="    environment:"$'\n'"${ENV_SECTION}"
-          else
-            ENVIRONMENT_BLOCK=""
-          fi
-
-          MYSQL_NETWORK_ENTRY=""
-          MYSQL_NETWORK_DEF=""
-          if [ "$HAS_MYSQL" = "true" ]; then
-            MYSQL_NETWORK_ENTRY="                - mysql"
-            MYSQL_NETWORK_DEF="            mysql:
-              external: true"
-          fi
-
-          cat > /tmp/docker-compose.yml <<COMPOSE
-          services:
-            app:
-              image: ${APP_IMAGE}:\${IMAGE_TAG:-latest}
-              container_name: ${APP_NAME}
-              restart: unless-stopped
-          ${ENVIRONMENT_BLOCK}
-              env_file:
-                - .env
-              networks:
-                - proxy
-          ${MYSQL_NETWORK_ENTRY}
-              labels:
-                - "traefik.enable=true"
-                - "traefik.docker.network=proxy"
-                - "traefik.http.routers.${APP_NAME}.rule=Host(\`${SUBDOMAIN}.voikyrioh.fr\`)"
-                - "traefik.http.routers.${APP_NAME}.entrypoints=websecure"
-                - "traefik.http.routers.${APP_NAME}.tls=true"
-                - "traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare"
-                - "traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}"
-                - "traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file"
-          networks:
-            proxy:
-              external: true
-          ${MYSQL_NETWORK_DEF}
-          COMPOSE
+          {
+            echo "services:"
+            echo "  app:"
+            echo "    image: ${APP_IMAGE}:\${IMAGE_TAG:-latest}"
+            echo "    container_name: ${APP_NAME}"
+            echo "    restart: unless-stopped"
+            if [ -n "$ENV_SECTION" ]; then
+              echo "    environment:"
+              echo "$ENV_SECTION"
+            fi
+            echo "    env_file:"
+            echo "      - .env"
+            echo "    networks:"
+            echo "      - proxy"
+            if [ "$HAS_MYSQL" = "true" ]; then
+              echo "      - mysql"
+            fi
+            echo "    labels:"
+            echo "      - \"traefik.enable=true\""
+            echo "      - \"traefik.docker.network=proxy\""
+            echo "      - \"traefik.http.routers.${APP_NAME}.rule=Host(\`${SUBDOMAIN}.voikyrioh.fr\`)\""
+            echo "      - \"traefik.http.routers.${APP_NAME}.entrypoints=websecure\""
+            echo "      - \"traefik.http.routers.${APP_NAME}.tls=true\""
+            echo "      - \"traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare\""
+            echo "      - \"traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}\""
+            echo "      - \"traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file\""
+            echo "networks:"
+            echo "  proxy:"
+            echo "    external: true"
+            if [ "$HAS_MYSQL" = "true" ]; then
+              echo "  mysql:"
+              echo "    external: true"
+            fi
+          } > /tmp/docker-compose.yml
 
       - name: Provisioning VPS
         env:
