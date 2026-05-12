@@ -220,7 +220,7 @@ jobs:
                 - .env
               networks:
                 - proxy
-${MYSQL_NETWORK_ENTRY}
+          ${MYSQL_NETWORK_ENTRY}
               labels:
                 - "traefik.enable=true"
                 - "traefik.docker.network=proxy"
@@ -233,7 +233,7 @@ ${MYSQL_NETWORK_ENTRY}
           networks:
             proxy:
               external: true
-${MYSQL_NETWORK_DEF}
+          ${MYSQL_NETWORK_DEF}
           COMPOSE
 
       - name: Provisioning VPS
