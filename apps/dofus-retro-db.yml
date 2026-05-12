@@ -1,0 +1,5 @@
+name: dofus-retro-db
+github_repo: voikyrioh/dofus-retro-db
+subdomain: dofus-db
+port: 80
+image: ghcr.io/voikyrioh/dofus-retro-db

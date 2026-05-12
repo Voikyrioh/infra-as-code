@@ -15,6 +15,26 @@ services:
       timeout: 5s
       retries: 5
 
+  mysql-backup:
+    image: alpine:latest
+    container_name: mysql_backup
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-backup-data:/backups
+      - ./backup.sh:/backup.sh:ro
+      - ./crontab:/etc/crontabs/root:ro
+    networks:
+      - mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: >
+      sh -c "apk add --no-cache mysql-client &&
+             touch /var/log/backup.log &&
+             crond -f -d 6"
+
 networks:
   mysql:
     name: mysql
@@ -22,3 +42,4 @@ networks:
 
 volumes:
   mysql-data:
+  mysql-backup-data:

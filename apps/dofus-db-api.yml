@@ -1,0 +1,19 @@
+name: dofus-db-api
+github_repo: voikyrioh/dofus-db-retro-api
+subdomain: dofus-db-api
+port: 8080
+image: ghcr.io/voikyrioh/dofus-db-retro-api
+
+env:
+  NODE_ENV: production
+  WEBSITE_URL: https://dofus-db.voikyrioh.fr
+  DOMAIN: dofus-db-api.voikyrioh.fr
+  JWT_EXPIRATION_TIME_MS: "3600000"
+  LOG_FILE: /data/logs/app.log
+
+resources:
+  - type: mysql
+
+vault:
+  paths:
+    - secret/apps/dofus-db-api
