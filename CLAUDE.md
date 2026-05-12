@@ -71,13 +71,13 @@ infra/
 
 ## Phases d'implémentation
 
-1. Bootstrap serveur (Ansible)
-2. Traefik (reverse proxy + TLS)
-3. Stack monitoring (Grafana fonctionnel)
-4. CI/CD template (workflow réutilisable)
+1. Bootstrap serveur (Ansible) ✓
+2. Traefik (reverse proxy + TLS) ✓
+3. Stack monitoring (Grafana fonctionnel) ✓
+4. CI/CD template (workflow réutilisable) ✓
 5. Dashboard backend (Hono + Docker socket + WebAuthn)
 6. Dashboard frontend (Vue 3 + biométrie)
-7. Migration des apps existantes
+7. Migration des apps existantes ✓ (dofus-db-api + dofus-retro-db)
 
 ## Sécurité
 
@@ -88,9 +88,56 @@ infra/
 - Tous les secrets dans GitHub Secrets, jamais dans le code
 - Interfaces internes (Grafana, Dashboard) derrière Traefik HTTPS
 
+## Apps déployées
+
+| App | Repo GitHub | Subdomain | Type |
+|-----|-------------|-----------|------|
+| dofus-db-api | `voikyrioh/dofus-db-retro-api` | `dofus-db-api.voikyrioh.fr` | Hono/MySQL API |
+| dofus-retro-db | `voikyrioh/db-dofus-retro` | `dofus-db.voikyrioh.fr` | Vue 3 frontend (nginx) |
+
+Config dans `apps/<app_name>.yml`. Provisionnement via `provision-app.yml` (une seule fois par app).
+
+## Pattern de déploiement
+
+```
+push main (app repo)
+  → ci.yml (build Docker → GHCR)
+  → deploy-app.yml (infra-as-code, réutilisable)
+      → Vault → .env → VPS → docker compose up
+```
+
+**Référence correcte dans `uses:` :**
+```yaml
+uses: voikyrioh/infra-as-code/.github/workflows/deploy-app.yml@main
+```
+⚠️ Le repo s'appelle `infra-as-code` sur GitHub, pas `infra`.
+
+## Accès aux bases de données (SSH tunnel)
+
+Les bases ne sont pas exposées sur Internet. Tunnel SSH depuis la machine locale :
+
+```bash
+# MySQL
+make db-mysql VPS_HOST=<ip> VPS_PORT=<port>
+# ou directement :
+ssh -L 3306:shared_mysql:3306 -N deploy@<ip> -p <port>
+
+# PostgreSQL
+make db-postgres VPS_HOST=<ip> VPS_PORT=<port>
+```
+
+Une fois le tunnel actif, connecte-toi avec DBeaver/TablePlus sur `localhost:3306`.
+Credentials : `vault kv get secret/apps/<app_name>`
+
+## Migrations & Seeds (dofus-db-api)
+
+Workflow manuel `migrate-dofus-db.yml` :
+- Lance `db-migrate up -e production` dans le container sur le VPS
+- Option `run_seed: true` pour insérer les données initiales (idempotent — vérifie COUNT avant d'insérer)
+
 ## Secrets GitHub requis
 
-### Repo infra (voikyrioh/infra)
+### Repo infra (voikyrioh/infra-as-code)
 
 ```
 VPS_HOST          → IP du VPS
