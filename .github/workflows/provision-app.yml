@@ -196,8 +196,7 @@ jobs:
           ENV_SECTION=$(yq '.env // {} | to_entries[] | "      " + .key + ": \"" + .value + "\""' "apps/$APP_NAME.yml")
 
           if [ -n "$ENV_SECTION" ]; then
-            ENVIRONMENT_BLOCK="    environment:
-${ENV_SECTION}"
+            ENVIRONMENT_BLOCK="    environment:"$'\n'"${ENV_SECTION}"
           else
             ENVIRONMENT_BLOCK=""
           fi
