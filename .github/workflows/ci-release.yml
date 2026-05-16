@@ -74,7 +74,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           secrets: |
-            github_token=${{ secrets.GHCR_TOKEN }}
+            github_token=${{ secrets.GITHUB_TOKEN }}
 
       - name: Créer le tag git et la release GitHub
         env:
