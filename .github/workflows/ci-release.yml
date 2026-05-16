@@ -32,7 +32,8 @@ jobs:
       - name: Calculer le nouveau tag
         id: version
         run: |
-          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST=$(git tag --sort=-version:refname | head -1)
+          [ -z "$LATEST" ] && LATEST="v0.0.0"
           MAJOR=$(echo "$LATEST" | cut -d. -f1 | tr -d 'v')
           MINOR=$(echo "$LATEST" | cut -d. -f2)
           PATCH=$(echo "$LATEST" | cut -d. -f3)
