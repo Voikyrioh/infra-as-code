@@ -79,7 +79,7 @@ jobs:
               -e MYSQL_USER='$MYSQL_USER' \
               -e MYSQL_PASSWORD='$MYSQL_PASSWORD' \
               -e MYSQL_DATABASE='$MYSQL_DATABASE' \
-              ghcr.io/voikyrioh/dofus-db-api:v0.1.2 \
+              ghcr.io/voikyrioh/dofus-db-api:latest \
               node node_modules/.bin/db-migrate up --config database.json -e production"
 
       - name: Seed des données initiales
@@ -97,7 +97,7 @@ jobs:
               -e MYSQL_USER='$MYSQL_USER' \
               -e MYSQL_PASSWORD='$MYSQL_PASSWORD' \
               -e MYSQL_DATABASE='$MYSQL_DATABASE' \
-              ghcr.io/voikyrioh/dofus-db-api:v0.1.2 \
+              ghcr.io/voikyrioh/dofus-db-api:latest \
               npm run seed"
 
       - name: Cleanup SSH
