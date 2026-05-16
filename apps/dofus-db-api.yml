@@ -2,7 +2,7 @@ name: dofus-db-api
 github_repo: voikyrioh/dofus-db-retro-api
 subdomain: dofus-db-api
 port: 8080
-image: ghcr.io/voikyrioh/dofus-db-retro-api
+image: ghcr.io/voikyrioh/dofus-db-api
 
 env:
   NODE_ENV: production
