@@ -24,6 +24,8 @@ on:
         required: true
       VAULT_SECRET_ID:
         required: true
+      GHCR_TOKEN:
+        required: true
       NPM_TOKEN:
         required: false
 
@@ -103,12 +105,16 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
+          envs: GHCR_TOKEN
           script: |
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u voikyrioh --password-stdin
             cd /opt/infra/apps/${{ inputs.app_name }}
             docker compose pull
             docker compose up -d --remove-orphans
