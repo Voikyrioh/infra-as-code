@@ -71,7 +71,8 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
           ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
-            "docker run --rm \
+            "docker pull ghcr.io/voikyrioh/dofus-db-api:latest && \
+              docker run --rm \
               --network mysql \
               -e NODE_ENV=production \
               -e MYSQL_HOST='$MYSQL_HOST' \
@@ -89,7 +90,8 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
           ssh -p "$VPS_SSH_PORT" "deploy@$VPS_HOST" \
-            "docker run --rm \
+            "docker pull ghcr.io/voikyrioh/dofus-db-api:latest && \
+              docker run --rm \
               --network mysql \
               -e NODE_ENV=production \
               -e MYSQL_HOST='$MYSQL_HOST' \
