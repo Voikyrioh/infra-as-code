@@ -74,8 +74,8 @@ jobs:
             ghcr.io/${{ steps.owner.outputs.value }}/${{ inputs.app_name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          args:
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          secrets: |
+            "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
       - name: Créer le tag git et la release GitHub
         env:
