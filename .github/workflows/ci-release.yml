@@ -64,7 +64,6 @@ jobs:
       - name: Build et push image
         uses: docker/build-push-action@v6
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_TAG: ${{ steps.version.outputs.tag }}
         with:
           context: .
@@ -75,7 +74,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           secrets: |
-            "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+            github_token=${{ secrets.GHCR_TOKEN }}
 
       - name: Créer le tag git et la release GitHub
         env:

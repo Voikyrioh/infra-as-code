@@ -277,6 +277,7 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           SSH_FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
           VAULT_ADDR_VALUE: ${{ secrets.VAULT_ADDR }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GITHUB_REPO: ${{ steps.config.outputs.github_repo }}
         run: |
           gh secret set SSH_PRIVATE_KEY      --repo "$GITHUB_REPO" --body "$VPS_SSH_KEY"
@@ -287,6 +288,7 @@ jobs:
           gh secret set VAULT_ADDR           --repo "$GITHUB_REPO" --body "$VAULT_ADDR_VALUE"
           gh secret set VAULT_ROLE_ID        --repo "$GITHUB_REPO" --body "$APP_ROLE_ID"
           gh secret set VAULT_SECRET_ID      --repo "$GITHUB_REPO" --body "$APP_SECRET_ID"
+          gh secret set GHCR_TOKEN           --repo "$GITHUB_REPO" --body "$GHCR_TOKEN"
 
       - name: Cleanup SSH
         if: always()

@@ -24,6 +24,8 @@ on:
         required: true
       VAULT_SECRET_ID:
         required: true
+      NPM_TOKEN:
+        required: false
 
 jobs:
   build-and-deploy:
@@ -58,7 +60,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GITHUB_TOKEN=${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Install Vault CLI
         run: |
