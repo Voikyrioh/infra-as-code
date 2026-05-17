@@ -1,4 +1,4 @@
-name: Provision New App
+name: Provision App
 
 on:
   workflow_dispatch:
