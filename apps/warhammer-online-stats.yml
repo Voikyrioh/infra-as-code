@@ -1,0 +1,5 @@
+name: warhammer-online-stats
+github_repo: voikyrioh/warhammer-online-stats
+subdomain: fiche-perso
+port: 80
+image: ghcr.io/voikyrioh/warhammer-online-stats
