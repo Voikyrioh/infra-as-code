@@ -1,0 +1,13 @@
+name: webgpu-cube
+github_repo: voikyrioh/vk-web-gp-cube
+subdomain: cube
+port: 80
+image: ghcr.io/voikyrioh/webgpu-cube
+
+env: {}
+
+resources: []
+
+vault:
+  paths:
+    - secret/apps/webgpu-cube
