@@ -3,6 +3,7 @@ github_repo: voikyrioh/dashboard
 subdomain: dashboard
 port: 8080
 image: ghcr.io/voikyrioh/dashboard-api
+custom_compose: true
 
 env:
   NODE_ENV: production

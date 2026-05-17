@@ -55,6 +55,7 @@ jobs:
           echo "has_postgres=$(yq '.resources // [] | .[] | select(.type == "postgres") | "true"' $F | head -1)" >> $GITHUB_OUTPUT
           echo "has_redis=$(yq '.resources // [] | .[] | select(.type == "redis") | "true"' $F | head -1)"      >> $GITHUB_OUTPUT
           echo "has_mysql=$(yq '.resources // [] | .[] | select(.type == "mysql") | "true"' $F | head -1)"      >> $GITHUB_OUTPUT
+          echo "custom_compose=$(yq '.custom_compose // false' $F)"                                            >> $GITHUB_OUTPUT
 
       - name: Calcul du SSH fingerprint
         id: fingerprint
@@ -118,12 +119,21 @@ jobs:
              docker exec $PG_CONTAINER psql -U $PG_ADMIN_USER \
               -c \"CREATE DATABASE $PG_DATABASE OWNER $PG_USER;\" 2>/dev/null || true"
 
-          vault kv put "secret/apps/$APP_NAME" \
-            PG_HOST="$PG_CONTAINER" \
-            PG_PORT="5432" \
-            PG_DATABASE="$PG_DATABASE" \
-            PG_USER="$PG_USER" \
-            PG_PASSWORD="$PG_PASSWORD"
+          if vault kv get "secret/apps/$APP_NAME" > /dev/null 2>&1; then
+            vault kv patch "secret/apps/$APP_NAME" \
+              PG_HOST="$PG_CONTAINER" \
+              PG_PORT="5432" \
+              PG_DATABASE="$PG_DATABASE" \
+              PG_USER="$PG_USER" \
+              PG_PASSWORD="$PG_PASSWORD"
+          else
+            vault kv put "secret/apps/$APP_NAME" \
+              PG_HOST="$PG_CONTAINER" \
+              PG_PORT="5432" \
+              PG_DATABASE="$PG_DATABASE" \
+              PG_USER="$PG_USER" \
+              PG_PASSWORD="$PG_PASSWORD"
+          fi
 
       - name: Provision Redis
         if: steps.config.outputs.has_redis == 'true'
@@ -189,6 +199,7 @@ jobs:
           fi
 
       - name: Génération du docker-compose.yml
+        if: steps.config.outputs.custom_compose != 'true'
         env:
           APP_NAME: ${{ inputs.app_name }}
           HAS_MYSQL: ${{ steps.config.outputs.has_mysql }}
@@ -261,6 +272,7 @@ jobs:
           } > /tmp/docker-compose.yml
 
       - name: Provisioning VPS
+        if: steps.config.outputs.custom_compose != 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
