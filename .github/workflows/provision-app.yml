@@ -114,6 +114,8 @@ jobs:
             "docker exec $PG_CONTAINER psql -U $PG_ADMIN_USER \
               -c \"CREATE USER $PG_USER WITH PASSWORD '$PG_PASSWORD';\" 2>/dev/null || true
              docker exec $PG_CONTAINER psql -U $PG_ADMIN_USER \
+              -c \"ALTER USER $PG_USER WITH PASSWORD '$PG_PASSWORD';\"
+             docker exec $PG_CONTAINER psql -U $PG_ADMIN_USER \
               -c \"CREATE DATABASE $PG_DATABASE OWNER $PG_USER;\" 2>/dev/null || true"
 
           vault kv put "secret/apps/$APP_NAME" \
@@ -166,6 +168,7 @@ jobs:
             "docker exec $MYSQL_CONTAINER mysql -u root -p\"$MYSQL_ROOT_PASSWORD\" \
               -e \"CREATE DATABASE IF NOT EXISTS \\\`$MYSQL_DATABASE\\\`;
                    CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+                   ALTER USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
                    GRANT ALL PRIVILEGES ON \\\`$MYSQL_DATABASE\\\`.* TO '$MYSQL_USER'@'%';
                    FLUSH PRIVILEGES;\""
 
