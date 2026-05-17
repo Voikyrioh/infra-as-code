@@ -239,7 +239,7 @@ jobs:
               echo "      - \"traefik.http.routers.${APP_NAME}-www.service=${APP_NAME}\""
               echo "      - \"traefik.http.routers.${APP_NAME}-www.middlewares=${APP_NAME}-redirect-to-apex@docker\""
               echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.regex=^https://www\\\\.${APP_DOMAIN}/(.*)\""
-              echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.replacement=https://${APP_DOMAIN}/\\\${1}\""
+              echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.replacement=https://${APP_DOMAIN}/\${1}\""
               echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.permanent=true\""
             else
               echo "      - \"traefik.http.routers.${APP_NAME}.rule=Host(\`${APP_DOMAIN}\`)\""
