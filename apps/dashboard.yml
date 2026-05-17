@@ -1,5 +1,5 @@
 name: dashboard
-github_repo: voikyrioh/dashboard
+github_repo: voikyrioh/infra-dashboard
 subdomain: dashboard
 port: 8080
 image: ghcr.io/voikyrioh/dashboard-api
@@ -12,7 +12,7 @@ env:
   ORIGIN: https://dashboard.voikyrioh.fr
   CLIENT_URLS: https://dashboard.voikyrioh.fr
   GITHUB_OWNER: voikyrioh
-  GITHUB_REPO: dashboard
+  GITHUB_REPO: infra-dashboard
   LOG_FILE: /data/logs/app.log
   PRIVATE_KEY: /data/ssl/id_rsa
   PUBLIC_KEY: /data/ssl/id_rsa.pub
