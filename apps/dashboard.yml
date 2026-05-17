@@ -16,6 +16,8 @@ env:
   PRIVATE_KEY: /data/ssl/id_rsa
   PUBLIC_KEY: /data/ssl/id_rsa.pub
   JWT_EXPIRATION_TIME_MS: "3600000"
+  VICTORIA_METRICS_URL: http://victoria-metrics:8428
+  LOKI_URL: http://loki:3100
 
 resources:
   - type: postgres
@@ -23,3 +25,5 @@ resources:
 vault:
   paths:
     - secret/apps/dashboard
+    # secret/apps/dashboard doit contenir :
+    # CF_API_TOKEN, CF_ZONE_ID, GITHUB_WEBHOOK_SECRET
