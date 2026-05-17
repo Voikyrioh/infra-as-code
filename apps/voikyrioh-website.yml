@@ -1,0 +1,5 @@
+name: voikyrioh-website
+github_repo: voikyrioh/voikyrioh.fr
+domain: voikyrioh.fr
+port: 80
+image: ghcr.io/voikyrioh/voikyrioh-website

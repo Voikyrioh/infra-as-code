@@ -48,7 +48,8 @@ jobs:
         run: |
           F="apps/$APP_NAME.yml"
           echo "github_repo=$(yq '.github_repo' $F)"   >> $GITHUB_OUTPUT
-          echo "subdomain=$(yq '.subdomain' $F)"       >> $GITHUB_OUTPUT
+          echo "subdomain=$(yq '.subdomain // ""' $F)"  >> $GITHUB_OUTPUT
+          echo "domain=$(yq '.domain // ""' $F)"       >> $GITHUB_OUTPUT
           echo "port=$(yq '.port' $F)"                 >> $GITHUB_OUTPUT
           echo "image=$(yq '.image' $F)"               >> $GITHUB_OUTPUT
           echo "has_postgres=$(yq '.resources // [] | .[] | select(.type == "postgres") | "true"' $F | head -1)" >> $GITHUB_OUTPUT
@@ -190,8 +191,17 @@ jobs:
           HAS_MYSQL: ${{ steps.config.outputs.has_mysql }}
         run: |
           SUBDOMAIN="${{ steps.config.outputs.subdomain }}"
+          CUSTOM_DOMAIN="${{ steps.config.outputs.domain }}"
           APP_PORT="${{ steps.config.outputs.port }}"
           APP_IMAGE="${{ steps.config.outputs.image }}"
+
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            APP_DOMAIN="$CUSTOM_DOMAIN"
+            HAS_APEX=true
+          else
+            APP_DOMAIN="${SUBDOMAIN}.voikyrioh.fr"
+            HAS_APEX=false
+          fi
 
           ENV_SECTION=$(yq '.env // {} | to_entries[] | "      " + .key + ": \"" + .value + "\""' "apps/$APP_NAME.yml")
 
@@ -215,12 +225,29 @@ jobs:
             echo "    labels:"
             echo "      - \"traefik.enable=true\""
             echo "      - \"traefik.docker.network=proxy\""
-            echo "      - \"traefik.http.routers.${APP_NAME}.rule=Host(\`${SUBDOMAIN}.voikyrioh.fr\`)\""
-            echo "      - \"traefik.http.routers.${APP_NAME}.entrypoints=websecure\""
-            echo "      - \"traefik.http.routers.${APP_NAME}.tls=true\""
-            echo "      - \"traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare\""
             echo "      - \"traefik.http.services.${APP_NAME}.loadbalancer.server.port=${APP_PORT}\""
-            echo "      - \"traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file\""
+            if [ "$HAS_APEX" = "true" ]; then
+              echo "      - \"traefik.http.routers.${APP_NAME}.rule=Host(\`${APP_DOMAIN}\`)\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.entrypoints=websecure\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.tls=true\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file\""
+              echo "      - \"traefik.http.routers.${APP_NAME}-www.rule=Host(\`www.${APP_DOMAIN}\`)\""
+              echo "      - \"traefik.http.routers.${APP_NAME}-www.entrypoints=websecure\""
+              echo "      - \"traefik.http.routers.${APP_NAME}-www.tls=true\""
+              echo "      - \"traefik.http.routers.${APP_NAME}-www.tls.certresolver=cloudflare\""
+              echo "      - \"traefik.http.routers.${APP_NAME}-www.service=${APP_NAME}\""
+              echo "      - \"traefik.http.routers.${APP_NAME}-www.middlewares=${APP_NAME}-redirect-to-apex@docker\""
+              echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.regex=^https://www\\\\.${APP_DOMAIN}/(.*)\""
+              echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.replacement=https://${APP_DOMAIN}/\\\${1}\""
+              echo "      - \"traefik.http.middlewares.${APP_NAME}-redirect-to-apex.redirectregex.permanent=true\""
+            else
+              echo "      - \"traefik.http.routers.${APP_NAME}.rule=Host(\`${APP_DOMAIN}\`)\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.entrypoints=websecure\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.tls=true\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.tls.certresolver=cloudflare\""
+              echo "      - \"traefik.http.routers.${APP_NAME}.middlewares=secure-headers@file\""
+            fi
             echo "networks:"
             echo "  proxy:"
             echo "    external: true"
